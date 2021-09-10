@@ -23,8 +23,7 @@ from dialogflow_ros.msg import GetOrderAction
 import actionlib
 from std_msgs.msg import Empty
 
-client=None
-pub=None
+client1=None
 
 class HRI:
     def __init__(self, name):
@@ -68,7 +67,7 @@ class HRI:
         rospy.loginfo("Reached Server")
         goal = TtsGoal()
         goal.rawtext.text = self.text
-        goal.rawtext.lang_id = "en_GB"
+        goal.rawtext.lang_id = "en_US"
         client.send_goal(goal)
         client.wait_for_result()
         res = client.get_result()
@@ -116,12 +115,17 @@ class HRI:
 
         elif goal.mode == 1:
             self.text_to_be_analysed = "Take Order"
-            msg = TtsActionGoal()
-            #response = self.call_dialogflow()
-            msg.goal.rawtext.text="Hello, please make an order"
-            msg.goal.rawtext.lang_id="en_US"
-            pub.publish(msg)
-            response = client()
+            client2 = actionlib.SimpleActionClient("tts", TtsAction)
+            rospy.loginfo("Waiting for Server")
+            client2.wait_for_server()
+            rospy.loginfo("Reached Server")
+            goal = TtsGoal()
+            goal.rawtext.text = "Hello, please make an order"
+            goal.rawtext.lang_id = "en_US"
+            client2.send_goal(goal)
+            client2.wait_for_result()
+            res = client2.get_result()
+            response = client1()
 
             order_list=response.message.split(" ")
 
@@ -155,7 +159,5 @@ if __name__ == "__main__":
 
     rospy.init_node("sciroc_hri")
     g=HRI()
-    #client = actionlib.SimpleActionClient('requested_by_hri', GetOrderAction)
-    client = rospy.serviceProxy('listen', Trigger)
-    pub = rospy.Publisher('/tts/goal', TtsActionGoal)
+    client1 = rospy.serviceProxy('listen', Trigger)
     rospy.spin()
