@@ -4,9 +4,10 @@
 import rospy
 import actionlib
 from std_msgs import String
+from std_srvs import Trigger
 
 # import PAL Robotics custom headers
-from pal_interaction_msgs.msg import TtsAction, TtsGoal
+from pal_interaction_msgs.msg import TtsAction, TtsGoal, TtsActionGoal
 
 # import hri action message
 from sciroc_hri.msg import HRIAction, HRIFeedback, HRIResult
@@ -23,6 +24,7 @@ import actionlib
 from std_msgs.msg import Empty
 
 client=None
+pub=None
 
 class HRI:
     def __init__(self, name):
@@ -30,9 +32,9 @@ class HRI:
         self._feedback = HRIFeedback()
         self._result = HRIResult()
         self._action_name = name
-        rospy.Subscriber("/dialogflow_text", String, self.transcript_cb)
-        self.dc = DialogflowClient()
-        self.dr = DialogflowRequest()
+        #rospy.Subscriber("/dialogflow_text", String, self.transcript_cb)
+        #self.dc = DialogflowClient()
+        #self.dr = DialogflowRequest()
         self.transcript = " "
 
         # Initialize the hri_action_server to listen for goal from client
@@ -49,18 +51,18 @@ class HRI:
     def transcript_cb(self, msg):
         self.transcript = msg
 
-    def call_dialogflow(self, text):
-        final_order_str=client()
+    #def call_dialogflow(self, text):
+        #final_order_str=client()
         
-        indx=final_order_str.find(":")
-        final_order_str=final_order_str[indx+1:]
+        #indx=final_order_str.find(":")
+        #final_order_str=final_order_str[indx+1:]
 
-        order_list=final_order_str.split()
+        #order_list=final_order_str.split()
 
-        return order_list
+        #return order_list
 
     def say_something(self):
-        client = actionlib.SimpleActionClient("tts/goal", TtsAction)
+        client = actionlib.SimpleActionClient("tts", TtsAction)
         rospy.loginfo("Waiting for Server")
         client.wait_for_server()
         rospy.loginfo("Reached Server")
@@ -114,11 +116,19 @@ class HRI:
 
         elif goal.mode == 1:
             self.text_to_be_analysed = "Take Order"
-            response = self.call_dialogflow()
+            msg = TtsActionGoal()
+            #response = self.call_dialogflow()
+            msg.goal.rawtext.text="Hello, please make an order"
+            msg.goal.rawtext.lang_id="en_US"
+            pub.publish(msg)
+            response = client()
+
+            order_list=response.message.split(" ")
+
             # TODO this is the only place dialogflow is needed
             # Take Orderù
             self._result.result=True
-            self._result.order_list=response
+            self._result.order=order_list
 
         elif goal.mode == 2:
             # Greet
@@ -145,5 +155,7 @@ if __name__ == "__main__":
 
     rospy.init_node("sciroc_hri")
     g=HRI()
-    client = actionlib.SimpleActionClient('requested_by_hri', GetOrderAction)
+    #client = actionlib.SimpleActionClient('requested_by_hri', GetOrderAction)
+    client = rospy.serviceProxy('listen', Trigger)
+    pub = rospy.Publisher('/tts/goal', TtsActionGoal)
     rospy.spin()
